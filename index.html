@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Infrastructure Smart Money Watchlist</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070f;
+    --surface: #0c1020;
+    --border: #1a2035;
+    --border-glow: #2a3555;
+    --text: #c8d4f0;
+    --muted: #4a5a80;
+    --accent: #4f8eff;
+    --green: #2ecc8a;
+    --red: #ff4f6a;
+    --gold: #f5c842;
+    --purple: #9b72ff;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Scanline texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.012) 2px, rgba(255,255,255,0.012) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .hero {
+    position: relative;
+    padding: 48px 32px 32px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0a0f1e 0%, var(--bg) 100%);
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, #4f8eff18 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .label-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 800;
+    color: #e8f0ff;
+    margin: 8px 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--mono);
+    margin-top: 4px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    align-items: center;
+  }
+
+  .filter-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .download-btn {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 18px;
+    border-radius: 4px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .download-btn:hover { background: var(--gold); color: #000; }
+
+  .table-wrap {
+    overflow-x: auto;
+    padding: 24px 32px 48px;
+    position: relative;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1100px;
+    position: relative;
+  }
+
+  thead tr {
+    border-bottom: 2px solid var(--border-glow);
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  th:hover { color: var(--accent); }
+
+  th .sort-icon { margin-left: 4px; opacity: 0.4; }
+  th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: #ffffff05; }
+  tbody tr.expanded { background: #0f1830; }
+
+  td {
+    padding: 12px 14px;
+    font-size: 13px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .ticker {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    color: #e8f0ff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .layer-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .company-name {
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+
+  .price {
+    font-family: var(--mono);
+    font-weight: 700;
+    color: #e8f0ff;
+  }
+
+  .gain { font-family: var(--mono); font-weight: 700; }
+  .gain.pos { color: var(--green); }
+  .gain.neg { color: var(--red); }
+
+  .inst-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .inst-bar {
+    width: 60px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .inst-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .inst-pct {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .rating-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .pe-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  /* Expand row */
+  .expand-row td {
+    padding: 0;
+    border-bottom: 2px solid var(--border-glow);
+  }
+
+  .expand-inner {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    padding: 20px 24px;
+    background: #080f22;
+  }
+
+  .expand-section {
+    padding: 0 16px;
+    border-right: 1px solid var(--border);
+  }
+
+  .expand-section:last-child { border-right: none; }
+  .expand-section:first-child { padding-left: 0; }
+
+  .expand-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .expand-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 4px 0;
+    border-bottom: 1px solid #ffffff08;
+    font-size: 12px;
+  }
+
+  .expand-item-key { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .expand-item-val { color: var(--text); font-family: var(--mono); font-size: 11px; text-align: right; }
+
+  .risk-item {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 3px 0;
+    font-family: var(--mono);
+    display: flex;
+    gap: 8px;
+  }
+
+  .risk-item::before { content: '⚠'; color: var(--red); flex-shrink: 0; }
+
+  .catalyst-item {
+    font-size: 11px;
+    color: var(--text);
+    padding: 3px 0;
+    font-family: var(--mono);
+    display: flex;
+    gap: 8px;
+  }
+
+  .catalyst-item::before { content: '→'; color: var(--green); flex-shrink: 0; }
+
+  .leopold-tag {
+    background: var(--purple);
+    background: linear-gradient(90deg, #9b72ff22, #4f8eff22);
+    border: 1px solid #9b72ff44;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--purple);
+    margin-top: 8px;
+  }
+
+  .trend-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .trend-chip {
+    background: var(--border);
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .trend-chip .tc-label { color: var(--muted); }
+  .trend-chip .tc-val { color: var(--green); margin-left: 4px; font-weight: 700; }
+
+  /* Footer */
+  .footer {
+    padding: 20px 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .disclaimer {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .tools-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .tool-link {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+  }
+
+  .tool-link:hover { text-decoration: underline; }
+
+  /* No data row */
+  .no-results td {
+    text-align: center;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 32px;
+  }
+
+  @media (max-width: 768px) {
+    .hero, .controls, .table-wrap { padding-left: 16px; padding-right: 16px; }
+    .expand-inner { grid-template-columns: 1fr; }
+    .expand-section { border-right: none; padding-left: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="label-tag"><span class="live-dot"></span>Smart Money Tracker · 13F Signal</div>
+  <h1>AI Infrastructure Watchlist</h1>
+  <div class="subtitle">Leopold · Einhorn · Millennium · Citadel · Coatue — as of Apr 28, 2026</div>
+</div>
+
+<div class="controls">
+  <div class="filter-group" id="layerFilters">
+    <button class="filter-btn active" data-layer="all">All Layers</button>
+    <button class="filter-btn" data-layer="Power Generation">⚡ Power</button>
+    <button class="filter-btn" data-layer="Power Management & Cooling">❄️ Cooling</button>
+    <button class="filter-btn" data-layer="Optical Networking">🔭 Optical</button>
+    <button class="filter-btn" data-layer="Semiconductor Connectivity">🔗 Semicon</button>
+    <button class="filter-btn" data-layer="Data Center Networking">📡 Networking</button>
+    <button class="filter-btn" data-layer="Connectivity Hardware">🔌 Connectors</button>
+    <button class="filter-btn" data-layer="Contract Manufacturing / ODM">🏭 Mfg</button>
+    <button class="filter-btn" data-layer="AI Cloud">☁️ Cloud</button>
+  </div>
+  <button class="download-btn" id="dlBtn">⬇ Download JSON</button>
+</div>
+
+<div class="table-wrap">
+  <table id="stockTable">
+    <thead>
+      <tr>
+        <th data-col="ticker">Ticker <span class="sort-icon">↕</span></th>
+        <th data-col="layer">Layer</th>
+        <th data-col="price">Price <span class="sort-icon">↕</span></th>
+        <th data-col="market_cap">Mkt Cap</th>
+        <th data-col="one_year_gain_pct">1Y Gain <span class="sort-icon">↕</span></th>
+        <th data-col="ytd_gain_pct">YTD <span class="sort-icon">↕</span></th>
+        <th data-col="pe_forward">P/E Fwd</th>
+        <th data-col="institutional_ownership_pct">Inst. Own <span class="sort-icon">↕</span></th>
+        <th data-col="rating">Rating</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <div class="disclaimer">⚠ Not financial advice. Data from public 13F filings & earnings. DYOR. | Srikanth's AI Infra Research · 2026</div>
+  <div class="tools-row">
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">Track 13Fs:</span>
+    <a class="tool-link" href="https://hedgefollow.com" target="_blank">HedgeFollow</a>
+    <a class="tool-link" href="https://whalewisdom.com" target="_blank">WhaleWisdom</a>
+    <a class="tool-link" href="https://quiverquant.com" target="_blank">QuiverQuant</a>
+    <a class="tool-link" href="https://fintel.io" target="_blank">Fintel</a>
+    <a class="tool-link" href="https://dataroma.com" target="_blank">Dataroma</a>
+  </div>
+</div>
+
+<script>
+const LAYER_COLORS = {
+  "Power Generation": "#f97316",
+  "Power Management & Cooling": "#06b6d4",
+  "Optical Networking": "#8b5cf6",
+  "Semiconductor Connectivity": "#ec4899",
+  "Data Center Networking": "#4f8eff",
+  "Connectivity Hardware": "#2ecc8a",
+  "Contract Manufacturing / ODM": "#f5c842",
+  "AI Cloud": "#ff6b6b",
+  "Optical Networking / Telecom": "#8b5cf6"
+};
+
+const RATING_STYLES = {
+  "HIGH CONVICTION / HIGH RISK": { bg: "#ff4f6a22", border: "#ff4f6a44", color: "#ff4f6a" },
+  "HIGH CONVICTION / MEDIUM-HIGH RISK": { bg: "#9b72ff22", border: "#9b72ff44", color: "#9b72ff" },
+  "HIGH GROWTH / HIGH RISK": { bg: "#f5c84222", border: "#f5c84244", color: "#f5c842" },
+  "VALUE + CATALYST / MEDIUM RISK": { bg: "#2ecc8a22", border: "#2ecc8a44", color: "#2ecc8a" },
+  "HIGH CONVICTION / MEDIUM RISK": { bg: "#4f8eff22", border: "#4f8eff44", color: "#4f8eff" },
+  "MODERATE CONVICTION / MEDIUM RISK": { bg: "#06b6d422", border: "#06b6d444", color: "#06b6d4" },
+  "STEADY COMPOUNDER / LOW RISK": { bg: "#2ecc8a22", border: "#2ecc8a44", color: "#2ecc8a" },
+  "HIGH CONVICTION / LOWER RISK (large cap)": { bg: "#4f8eff22", border: "#4f8eff44", color: "#4f8eff" },
+  "VALUE PLAY / LOW-MEDIUM RISK": { bg: "#2ecc8a22", border: "#2ecc8a44", color: "#2ecc8a" }
+};
+
+let data = [];
+let activeLayer = "all";
+let sortCol = null;
+let sortDir = 1;
+let expandedTicker = null;
+
+async function loadData() {
+  // Inline the data for standalone portability
+  data = [
+    { ticker:"BE", name:"Bloom Energy", layer:"Power Generation", price:234.74, market_cap:"~$70B", pe_forward:"163x fwd", ytd_gain_pct:150, one_year_gain_pct:531, institutional_ownership_pct:85, rating:"HIGH CONVICTION / HIGH RISK", leopold_position:"#1 position, 16% of fund", thesis:"On-site fuel cells bypass grid constraints for AI data centers. Oracle 2.8 GW deal is multi-year revenue anchor.", key_buyers:["Leopold (16% of fund)","Vanguard","BlackRock"], risks:["Currently loss-making TTM","Manufacturing scale-up","High beta (3.14)","163x fwd P/E premium"], next_catalyst:"Q1 2026 earnings Apr 28", order_highlights:{"Product Backlog":"$6B","Oracle MOU":"2.8 GW (~$14B+)","AEP Agreement":"1 GW"}, trend:{"1Y":531,"6M":967,"3M":421}, financials:{"FY2025 Rev":"$2.02B (+37% YoY)","Gross Margin":"29%","FY2026 EPS est":"$1.41","FY2028 EPS est":"$4.92"} },
+    { ticker:"LITE", name:"Lumentum", layer:"Optical Networking", price:857.10, market_cap:"~$64B", pe_forward:"~35x fwd '27", ytd_gain_pct:105, one_year_gain_pct:1400, institutional_ownership_pct:88, rating:"HIGH CONVICTION / MEDIUM-HIGH RISK", leopold_position:"#2 position, 8.7% of fund", thesis:"Converts electrical→optical signals in AI data centers. Nvidia's $2B bet is quality seal. EML laser oligopoly.", key_buyers:["Leopold (8.7%)","Fidelity","Vanguard"], risks:["Nvidia mfg ramp execution","Customer concentration","270x TTM premium"], next_catalyst:"OCS reaching $1B run rate 2027", order_highlights:{"OCS Backlog":">$400M","Nvidia Partnership":"$2B manufacturing","2026 Revenue Guide":"$780M–$830M Q3"}, trend:{"1Y":1403,"6M":471,"3M":329}, financials:{"Q3 FY26 Revenue Guide":"$780–$830M","YoY Growth":"~85%","S&P 500":"Included Mar 2026"} },
+    { ticker:"CRWV", name:"CoreWeave", layer:"AI Cloud", price:111.15, market_cap:"~$59B", pe_forward:"EV/Rev ~11x", ytd_gain_pct:165, one_year_gain_pct:178, institutional_ownership_pct:72, rating:"HIGH GROWTH / HIGH RISK", leopold_position:"#3 position, 7.9% of fund", thesis:"GPU-cloud for AI. $87B backlog = 17x revenue. Nine of top 10 AI labs are customers.", key_buyers:["Leopold (7.9%)","Discovery Capital","Jane Street ($1B equity)"], risks:["$21B LT debt + $30B capex","67% MSFT concentration","High short interest 11.9%"], next_catalyst:"Q1 2026 earnings May 7", order_highlights:{"Total Backlog":"$66.8B","Pro Forma Backlog":"~$87–88B","Meta Deal":"$35.2B through 2032","Anthropic":"$6.8B multi-year"}, trend:{"1Y":178,"6M":71,"3M":85}, financials:{"FY2025 Rev":"$5.13B (+168%)","FY2026 Guide":"$12–13B","EBITDA Margin":"47.5%","Net Debt":"$21B"} },
+    { ticker:"NOK", name:"Nokia", layer:"Optical Networking / Telecom", price:12.46, market_cap:"~$60B", pe_forward:"29x fwd", ytd_gain_pct:60, one_year_gain_pct:211, institutional_ownership_pct:65, rating:"VALUE + CATALYST / MEDIUM RISK", leopold_position:"Not in Leopold's portfolio", thesis:"Value-with-catalyst. Legacy telecom pivoting to AI optical/IP. Infinera acquisition + Huawei ban = structural tailwind.", key_buyers:["Millennium Mgmt (+266%)","Alyeska (+171%)","Analog Century (new $104M)"], risks:["Legacy Mobile Networks drag","Infinera integration","Cisco/Ciena competition"], next_catalyst:"Q2 2026 earnings July 23", order_highlights:{"Q1 2026 AI Orders":"~€1B new","Optical+IP Growth 2026":"18–20% guided","Infinera Deal":"$2.3B (closed 2025)"}, trend:{"1Y":211,"6M":56,"3M":45}, financials:{"Q1 AI Cloud Rev Growth":"+49% YoY","Stock Level":"16-year high","Analyst Targets":"$14–$16 consensus"} },
+    { ticker:"VST", name:"Vistra Corp", layer:"Power Generation", price:142.00, market_cap:"~$47B", pe_forward:"~18x", ytd_gain_pct:10, one_year_gain_pct:80, institutional_ownership_pct:92, rating:"HIGH CONVICTION / MEDIUM RISK", leopold_position:"Not in Leopold's portfolio", thesis:"Largest competitive power generator in US. Nuclear + gas fleet for AI data centers. Cogentrix acquisition adds 3.1 GW.", key_buyers:["Vanguard","BlackRock","Norges Bank"], risks:["High capex for nuclear","Valuation moved","Regulated market exposure"], next_catalyst:"PJM 15-year AI power contract auction", order_highlights:{"Cogentrix Acquisition":"$4.7B / 3.1 GW gas","Market Position":"Largest competitive power gen"}, trend:{"1Y":80,"6M":30,"3M":10}, financials:{"Inst. Ownership":">90%","Market":"Deregulated power"} },
+    { ticker:"CEG", name:"Constellation Energy", layer:"Power Generation", price:278.00, market_cap:"~$88B", pe_forward:"~24x", ytd_gain_pct:-5, one_year_gain_pct:60, institutional_ownership_pct:88, rating:"MODERATE CONVICTION / MEDIUM RISK", leopold_position:"Not in Leopold's portfolio", thesis:"Largest nuclear operator in US. Three Mile Island restart for Microsoft. AI demand = structural nuclear repricing.", key_buyers:["Coatue Management","Citadel","Vanguard","BlackRock"], risks:["Rate cap regulatory headwinds","Nuclear maintenance costs","Already widely owned"], next_catalyst:"More hyperscaler power deals; regulatory clarity", order_highlights:{"Three Mile Island":"Restarted for Microsoft","Market Position":"Largest US nuclear operator"}, trend:{"1Y":60,"6M":-5,"3M":-8}, financials:{"Inst. Ownership":"~88%"} },
+    { ticker:"TLN", name:"Talen Energy", layer:"Power Generation", price:185.00, market_cap:"~$8B", pe_forward:"~15x", ytd_gain_pct:15, one_year_gain_pct:120, institutional_ownership_pct:80, rating:"HIGH GROWTH / HIGH RISK", leopold_position:"Not in Leopold's portfolio", thesis:"Pioneered nuclear co-location. Sold Susquehanna data center directly to Amazon AWS. Smallest purest nuclear-datacenter play.", key_buyers:["Smart money consensus","Post-bankruptcy institutional base"], risks:["Smaller balance sheet","Amazon concentration","Thinner liquidity"], next_catalyst:"Expansion of co-location deals; 2026 EBITDA reaffirmation", order_highlights:{"Amazon Deal":"Susquehanna campus sold to AWS","Model":"Nuclear power directly to data center"}, trend:{"1Y":120,"6M":40,"3M":12}, financials:{"Market Cap":"~$8B (smallest in group)"} },
+    { ticker:"VRT", name:"Vertiv Holdings", layer:"Power Management & Cooling", price:118.00, market_cap:"~$45B", pe_forward:"~32x", ytd_gain_pct:64, one_year_gain_pct:95, institutional_ownership_pct:90, rating:"HIGH CONVICTION / MEDIUM RISK", leopold_position:"Not in Leopold's portfolio", thesis:"Every AI rack >100 kW needs liquid cooling. Vertiv is dominant provider (~40% share). Nvidia partnership locks in 2027 roadmap.", key_buyers:["S&P 500 index (added Mar 2026)","BlackRock","Vanguard","Fidelity"], risks:["Widely owned post S&P addition","Schneider Electric competition","Customer concentration"], next_catalyst:"Rubin Ultra GPU launch 2027; rack power density increase", order_highlights:{"Q4 2025 Orders":"+252% YoY","Backlog":"$15B (+109% YoY)","Nvidia Co-Dev":"800V DC for Rubin Ultra 2027"}, trend:{"1Y":95,"6M":50,"3M":20}, financials:{"Q1 2026 Rev":"$2.65B (+30% YoY)","Liquid Cooling CAGR":"31.5% through 2033","Inst. Inflow 12M":"$2.1B net"} },
+    { ticker:"ALAB", name:"Astera Labs", layer:"Semiconductor Connectivity", price:120.33, market_cap:"~$18B", pe_forward:"~55x", ytd_gain_pct:35, one_year_gain_pct:92, institutional_ownership_pct:78, rating:"HIGH CONVICTION / MEDIUM RISK", leopold_position:"Not in Leopold's portfolio (but Atreides +2,496%)", thesis:"PCIe retimers, CXL interconnects, Smart Cable Modules between GPUs and memory. VLSI-evaluable products.", key_buyers:["Atreides Mgmt (+2,496% — new)","Artisan Partners (new $149M)","BlackRock (+$289M)","Fidelity (+$209M)"], risks:["Small cap high volatility","Hyperscaler concentration","Broadcom/Marvell long-term competition"], next_catalyst:"Q1 2026 earnings May 4", order_highlights:{"Amazon-Anthropic":"5GW Trainium = decade tailwind","Analyst Targets":"Needham $220, Stifel $200","Ratings":"6 Buy, 0 Sell"}, trend:{"1Y":92,"6M":50,"3M":27}, financials:{"Q4 2025 Rev":"$270.6M (+91.8% YoY)","Balance Sheet":"Healthy, low debt","VLSI Relevance":"HIGHEST in group"} },
+    { ticker:"APH", name:"Amphenol", layer:"Connectivity Hardware", price:175.00, market_cap:"~$104B", pe_forward:"~38x", ytd_gain_pct:25, one_year_gain_pct:55, institutional_ownership_pct:97, rating:"STEADY COMPOUNDER / LOW RISK", leopold_position:"Not in Leopold's portfolio", thesis:"Makes connectors and cables inside every AI server rack. Near-universal institutional ownership = quality consensus.", key_buyers:["Virtually all major institutions","$41B gross inflow vs $22.6B outflow in 12M"], risks:["Already very widely owned","Slow large cap"], next_catalyst:"Q2 2026 earnings", order_highlights:{"52W High":"All-time high $180 on Apr 24","Inst. Ownership":"97%"}, trend:{"1Y":55,"6M":25,"3M":12}, financials:{"Inst. Net Inflow 12M":"$18.4B net","Market Cap":"~$104B"} },
+    { ticker:"ANET", name:"Arista Networks", layer:"Data Center Networking", price:180.00, market_cap:"~$141B", pe_forward:"~42x", ytd_gain_pct:30, one_year_gain_pct:120, institutional_ownership_pct:88, rating:"HIGH CONVICTION / LOWER RISK (large cap)", leopold_position:"Not in Leopold's portfolio", thesis:"Dominant networking switch provider for hyperscale GPU clusters. Every Nvidia rack farm needs Arista fabric.", key_buyers:["BlackRock","Vanguard","Fidelity","Broad institutional accumulation"], risks:["Very large cap — hard to 10x","Cisco and Juniper competition"], next_catalyst:"AI networking revenue hitting $3.25B 2026 target", order_highlights:{"AI Networking Target 2026":"$3.25B","Revenue Growth Guide":"25% for 2026"}, trend:{"1Y":120,"6M":45,"3M":22}, financials:{"Q1 2026 Rev":"$2.65B (+30%)","Inst. Inflow 12M":"$11.1B net"} },
+    { ticker:"SNX", name:"TD SYNNEX", layer:"Contract Manufacturing / ODM", price:142.00, market_cap:"~$14B", pe_forward:"~12x", ytd_gain_pct:20, one_year_gain_pct:40, institutional_ownership_pct:82, rating:"VALUE PLAY / LOW-MEDIUM RISK", leopold_position:"Not in Leopold's portfolio (David Einhorn/Greenlight +44%)", thesis:"Hyve Solutions builds hyperscale AI servers. Lowest P/E (12x) in AI infrastructure stack. Picks-and-shovels without chipmaker volatility.", key_buyers:["David Einhorn / Greenlight Capital (+44% Q4 2025)"], risks:["Low margin distribution","Hyperscaler capex cycle dependency"], next_catalyst:"Q2 2026 earnings; Hyve growth continuation", order_highlights:{"Hyve Q1 2026 Volume":"$3.8B (+95% YoY)","Hyve Op. Income Growth":"+66%"}, trend:{"1Y":40,"6M":15,"3M":8}, financials:{"P/E":"~12x (lowest in group)","Market Cap":"~$14B"} }
+  ];
+  render();
+}
+
+function getFilteredData() {
+  let d = activeLayer === "all" ? data : data.filter(s => s.layer === activeLayer || s.layer.includes(activeLayer.split("/")[0]));
+  if (sortCol) {
+    d = [...d].sort((a, b) => {
+      let av = a[sortCol], bv = b[sortCol];
+      if (typeof av === 'string') av = av.replace(/[^0-9.-]/g,'');
+      if (typeof bv === 'string') bv = bv.replace(/[^0-9.-]/g,'');
+      return (parseFloat(av) - parseFloat(bv)) * sortDir;
+    });
+  }
+  return d;
+}
+
+function render() {
+  const tbody = document.getElementById('tableBody');
+  const rows = getFilteredData();
+  tbody.innerHTML = '';
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr class="no-results"><td colspan="10">No stocks in this layer.</td></tr>';
+    return;
+  }
+
+  rows.forEach(s => {
+    const lc = LAYER_COLORS[s.layer] || '#4f8eff';
+    const rs = RATING_STYLES[s.rating] || RATING_STYLES["HIGH CONVICTION / MEDIUM RISK"];
+    const isExpanded = expandedTicker === s.ticker;
+
+    // Main row
+    const tr = document.createElement('tr');
+    if (isExpanded) tr.classList.add('expanded');
+    tr.innerHTML = `
+      <td>
+        <div class="ticker">
+          <span class="layer-dot" style="background:${lc};box-shadow:0 0 6px ${lc}88"></span>
+          ${s.ticker}
+        </div>
+        <div class="company-name">${s.name}</div>
+      </td>
+      <td><span style="font-size:11px;font-family:var(--mono);color:${lc}">${s.layer}</span></td>
+      <td><span class="price">$${s.price.toLocaleString()}</span></td>
+      <td><span style="font-family:var(--mono);font-size:12px">${s.market_cap}</span></td>
+      <td><span class="gain ${s.one_year_gain_pct >= 0 ? 'pos' : 'neg'}">${s.one_year_gain_pct >= 0 ? '+' : ''}${s.one_year_gain_pct}%</span></td>
+      <td><span class="gain ${s.ytd_gain_pct >= 0 ? 'pos' : 'neg'}">${s.ytd_gain_pct >= 0 ? '+' : ''}${s.ytd_gain_pct}%</span></td>
+      <td><span class="pe-val">${s.pe_forward}</span></td>
+      <td>
+        <div class="inst-bar-wrap">
+          <div class="inst-bar"><div class="inst-bar-fill" style="width:${s.institutional_ownership_pct}%;background:${lc}"></div></div>
+          <span class="inst-pct">${s.institutional_ownership_pct}%</span>
+        </div>
+      </td>
+      <td><span class="rating-badge" style="background:${rs.bg};border:1px solid ${rs.border};color:${rs.color}">${s.rating.split('/')[0].trim()}</span></td>
+      <td style="text-align:center;font-size:16px;color:var(--muted)">${isExpanded ? '▲' : '▼'}</td>
+    `;
+    tr.addEventListener('click', () => {
+      expandedTicker = isExpanded ? null : s.ticker;
+      render();
+    });
+    tbody.appendChild(tr);
+
+    // Expanded row
+    if (isExpanded) {
+      const expTr = document.createElement('tr');
+      expTr.className = 'expand-row';
+      expTr.innerHTML = `<td colspan="10">
+        <div class="expand-inner">
+          <div class="expand-section">
+            <div class="expand-title">📋 Thesis & Order Book</div>
+            <p style="font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.6;margin-bottom:12px">${s.thesis}</p>
+            ${Object.entries(s.order_highlights || {}).map(([k,v]) => `
+              <div class="expand-item">
+                <span class="expand-item-key">${k}</span>
+                <span class="expand-item-val">${v}</span>
+              </div>`).join('')}
+            ${s.trend ? `<div class="trend-row" style="margin-top:12px">
+              ${Object.entries(s.trend).map(([p,v]) => `<div class="trend-chip"><span class="tc-label">${p}</span><span class="tc-val">${v >= 0 ? '+' : ''}${v}%</span></div>`).join('')}
+            </div>` : ''}
+          </div>
+          <div class="expand-section">
+            <div class="expand-title">💰 Financials</div>
+            ${Object.entries(s.financials || {}).map(([k,v]) => `
+              <div class="expand-item">
+                <span class="expand-item-key">${k}</span>
+                <span class="expand-item-val">${v}</span>
+              </div>`).join('')}
+            <div class="expand-title" style="margin-top:14px">🐋 Key Buyers</div>
+            ${(s.key_buyers || []).map(b => `<div style="font-family:var(--mono);font-size:11px;color:${lc};padding:3px 0">· ${b}</div>`).join('')}
+            ${s.leopold_position && s.leopold_position !== "Not in Leopold's portfolio" ? `<div class="leopold-tag">🦁 ${s.leopold_position}</div>` : ''}
+          </div>
+          <div class="expand-section">
+            <div class="expand-title">⚠ Risks</div>
+            ${(s.risks || []).map(r => `<div class="risk-item">${r}</div>`).join('')}
+            <div class="expand-title" style="margin-top:14px">🎯 Next Catalyst</div>
+            <div class="catalyst-item">${s.next_catalyst}</div>
+          </div>
+        </div>
+      </td>`;
+      tbody.appendChild(expTr);
+    }
+  });
+}
+
+// Filter buttons
+document.getElementById('layerFilters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeLayer = btn.dataset.layer;
+  expandedTicker = null;
+  render();
+});
+
+// Sort headers
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortDir *= -1;
+    else { sortCol = col; sortDir = -1; }
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sorted'));
+    th.classList.add('sorted');
+    render();
+  });
+});
+
+// Download JSON
+document.getElementById('dlBtn').addEventListener('click', () => {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ai_infrastructure_watchlist.json';
+  a.click();
+});
+
+loadData();
+</script>
+</body>
+</html>
